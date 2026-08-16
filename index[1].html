@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>16S rRNA Identification — BLAST Results</title>
+<style>
+:root{--navy:#17365d;--blue:#1769aa;--light:#f4f7fb;--border:#d9e2ec;--text:#1f2937}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--light);color:var(--text)}
+header{background:var(--navy);color:#fff;padding:42px 22px}
+header .wrap,main{max-width:1400px;margin:auto}
+h1{margin:0 0 10px;font-size:34px}
+.subtitle{font-size:17px;opacity:.92}
+main{padding:24px 18px 50px}
+.card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+h2{margin-top:0;color:var(--navy)}
+.note{background:#eef6ff;border-left:5px solid var(--blue);padding:15px 17px;border-radius:8px;line-height:1.5}
+.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin:18px 0}
+.field{display:flex;flex-direction:column;gap:6px;flex:1;min-width:280px}
+label{font-weight:700}
+input{padding:12px 14px;border:1px solid #b9c7d6;border-radius:9px;font-size:16px}
+button{padding:12px 18px;border:0;border-radius:9px;background:var(--blue);color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+button.secondary{background:#fff;color:var(--blue);border:1px solid var(--blue)}
+button:hover{opacity:.9}
+.stats{display:flex;gap:28px;flex-wrap:wrap;margin:12px 0 18px;color:#44546a}
+.table-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:1200px;background:#fff}
+th,td{padding:11px 12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+th{position:sticky;top:0;background:#eaf2f8;color:#102a43;cursor:pointer;white-space:nowrap}
+tr:hover td{background:#f8fbfe}
+a{color:var(--blue);font-weight:700;text-decoration:none}
+a:hover{text-decoration:underline}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;font-weight:700;font-size:13px;background:#eef6ff;color:#174a75}
+footer{max-width:1400px;margin:auto;padding:0 18px 35px;color:#667085;font-size:14px}
+.small{font-size:14px;color:#667085}
+</style>
+</head>
+<body>
+<header>
+<div class="wrap">
+<h1>16S rRNA Identification</h1>
+<div class="subtitle">BLAST-based sequence identification results</div>
+</div>
+</header>
+
+<main>
+<section class="card">
+<h2>About this dataset</h2>
+<p>This public viewer presents the 16S rRNA sequence identification results provided for this study.</p>
+<div class="note">
+<strong>Interpretation:</strong> The table reports the BLAST match information contained in the source dataset,
+including NCBI accession, hit description, identity, E-value and alignment scores. The organism names shown are
+the descriptions of the corresponding BLAST hits; they should be interpreted in the context of the reported
+sequence similarity rather than as independent confirmation of species identity.
+</div>
+</section>
+
+<section class="card">
+<h2>BLAST results</h2>
+<div class="controls">
+<div class="field">
+<label for="search">Search query, accession or microorganism</label>
+<input id="search" type="search" placeholder="e.g. Pseudomonas, MW857175.1, E230525-016_G15_5_27F">
+</div>
+<button id="download">Download filtered CSV</button>
+<button id="reset" class="secondary">Reset</button>
+</div>
+<div class="stats">
+<span>Results shown: <strong id="count">0</strong></span>
+<span>Status: <strong id="status">Ready</strong></span>
+</div>
+<div class="table-wrap">
+<table>
+<thead><tr>
+<th data-key="Query">Query</th>
+<th data-key="Query length">Query length</th>
+<th data-key="NCBI accession">NCBI accession</th>
+<th data-key="BLAST hit / organism">BLAST hit / organism</th>
+<th data-key="Identity (%)">Identity (%)</th>
+<th data-key="E-value">E-value</th>
+<th data-key="Bit score">Bit score</th>
+<th data-key="Matched bases">Matched bases</th>
+<th data-key="Alignment length">Alignment length</th>
+<th data-key="Strand">Strand</th>
+<th>GenBank</th>
+</tr></thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+<p class="small">Click a column heading to sort. Use the search box to filter the table.</p>
+</section>
+</main>
+
+<footer>
+16S rRNA identification dataset • Public interactive viewer
+</footer>
+
+<script>
+const DATA_URL="16S_rRNA_BLAST_results.csv";
+let data=[], filtered=[], sortKey=null, sortAsc=true;
+
+function parseCSV(text){
+  const rows=[]; let row=[], cell="", quote=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i], n=text[i+1];
+    if(c=='"'){
+      if(quote && n=='"'){cell+='"';i++}
+      else quote=!quote;
+    }else if(c==',' && !quote){row.push(cell);cell=""}
+    else if((c=='\n'||c=='\r') && !quote){
+      if(c=='\r' && n=='\n')i++;
+      row.push(cell);rows.push(row);row=[];cell="";
+    }else cell+=c;
+  }
+  if(cell!==""||row.length){row.push(cell);rows.push(row)}
+  const headers=rows.shift();
+  return rows.filter(r=>r.some(x=>x!=="")).map(r=>{
+    const o={};headers.forEach((h,i)=>o[h]=r[i]??"");return o;
+  });
+}
+function esc(s){
+  return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function render(){
+  const tbody=document.getElementById("tbody");
+  tbody.innerHTML="";
+  filtered.forEach(r=>{
+    const tr=document.createElement("tr");
+    const cells=[
+      esc(r["Query"]),
+      esc(r["Query length"]),
+      `<span class="badge">${esc(r["NCBI accession"])}</span>`,
+      esc(r["BLAST hit / organism"]),
+      esc(r["Identity (%)"]),
+      esc(r["E-value"]),
+      esc(r["Bit score"]),
+      esc(r["Matched bases"]),
+      esc(r["Alignment length"]),
+      esc(r["Strand"]),
+      r["GenBank"]?`<a href="${esc(r["GenBank"])}" target="_blank" rel="noopener">Open GenBank</a>`:""
+    ];
+    tr.innerHTML=cells.map(x=>`<td>${x}</td>`).join("");
+    tbody.appendChild(tr);
+  });
+  document.getElementById("count").textContent=filtered.length;
+}
+function applyFilter(){
+  const q=document.getElementById("search").value.trim().toLowerCase();
+  filtered=!q?[...data]:data.filter(r=>
+    ["Query","NCBI accession","BLAST hit / organism"].some(k=>
+      String(r[k]).toLowerCase().includes(q)
+    )
+  );
+  if(sortKey) sortData();
+  render();
+}
+function sortData(){
+  filtered.sort((a,b)=>{
+    let x=a[sortKey]??"", y=b[sortKey]??"";
+    const nx=parseFloat(x), ny=parseFloat(y);
+    if(!Number.isNaN(nx)&&!Number.isNaN(ny)){x=nx;y=ny}
+    else{x=String(x).toLowerCase();y=String(y).toLowerCase()}
+    if(x<y)return sortAsc?-1:1;
+    if(x>y)return sortAsc?1:-1;
+    return 0;
+  });
+}
+document.getElementById("search").addEventListener("input",applyFilter);
+document.getElementById("reset").addEventListener("click",()=>{
+  document.getElementById("search").value="";sortKey=null;sortAsc=true;applyFilter();
+});
+document.querySelectorAll("th[data-key]").forEach(th=>th.addEventListener("click",()=>{
+  const k=th.dataset.key;
+  if(sortKey===k)sortAsc=!sortAsc;else{sortKey=k;sortAsc=true}
+  sortData();render();
+}));
+document.getElementById("download").addEventListener("click",()=>{
+  const headers=["Query","Query length","NCBI accession","BLAST hit / organism","Identity (%)","E-value","Bit score","Raw score","Matched bases","Alignment length","Strand","GenBank"];
+  const q=s=>`"${String(s??"").replace(/"/g,'""')}"`;
+  const csv=[headers.map(q).join(","),...filtered.map(r=>headers.map(h=>q(r[h])).join(","))].join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="filtered_16S_rRNA_BLAST_results.csv";a.click();
+  URL.revokeObjectURL(a.href);
+});
+fetch(DATA_URL).then(r=>{if(!r.ok)throw Error();return r.text()})
+.then(t=>{data=parseCSV(t);filtered=[...data];render();document.getElementById("status").textContent="Ready";})
+.catch(()=>document.getElementById("status").textContent="Data file not found");
+</script>
+</body>
+</html>
